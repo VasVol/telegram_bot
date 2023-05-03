@@ -1,61 +1,58 @@
-# pip install python-telegram-bot
-# pip install tensorflow
-# pip install numpy
-# pip install opencv-python
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, \
-    ContextTypes
+from telegram.ext import Application, CommandHandler, MessageHandler, filters
+from telegram.constants import ParseMode
 
 from io import BytesIO
 import cv2
 import numpy as np
 from tensorflow import keras
 import datetime
-import os
 
-print("Starting up bot...")
-
-TOKEN = "6078048516:AAFJElCZkGyqXzp0EAUicd9PATxa0WzeuFg"
-BOT_USERNAME = "@VolovichBot"
+TOKEN = "6292004438:AAEYL6PsHiX2rRYmPls5IWptP3_EWRGaO0Q"
+BOT_USERNAME = "@Cifar10Bot"
 
 
 class AI:
     def __init__(self):
-        (self.x_train, self.y_train), (self.x_test, self.y_test) = keras.datasets.cifar10.load_data()
+        self.sum_epochs_count = 0
+        (self.x_train, self.y_train),\
+            (self.x_test, self.y_test) = keras.datasets.cifar10.load_data()
         self.x_train = self.x_train / 255
         self.x_test = self.x_test / 255
 
         self.class_names = ['Plane', 'Car', 'Bird', 'Cat', 'Deer', 'Dog',
                             'Frog', 'Horse', 'Ship', 'Truck']
 
-        k = 3
         self.model = keras.models.Sequential()
-        self.model.add(keras.layers.Conv2D(32, (k, k), activation='relu',
+        self.model.add(keras.layers.Conv2D(32, (3, 3), activation='relu',
                                            input_shape=(32, 32, 3)))
         self.model.add(keras.layers.MaxPooling2D(2, 2))
-        self.model.add(keras.layers.Conv2D(64, (k, k), activation='relu'))
+        self.model.add(keras.layers.Conv2D(64, (3, 3), activation='relu'))
         self.model.add(keras.layers.MaxPooling2D(2, 2))
-        self.model.add(keras.layers.Conv2D(64, (k, k), activation='relu'))
+        self.model.add(keras.layers.Conv2D(128, (3, 3), activation='relu'))
+        self.model.add(keras.layers.MaxPooling2D(2, 2))
         self.model.add(keras.layers.Flatten())
-        self.model.add(keras.layers.Dense(64, activation='relu'))
+        self.model.add(keras.layers.Dense(128, activation='relu'))
         self.model.add(keras.layers.Dense(10, activation='softmax'))
 
-    async def train(self, update, context):
-        # if os.path.exists('cifar_classifier.model'):
-        #     self.model = keras.models.load_model('cifar_classifier.model')
-        # else:
         self.model.compile(optimizer='adam',
                            loss='sparse_categorical_crossentropy',
                            metrics=['accuracy'])
-        self.model.fit(self.x_train, self.y_train, epochs=10,
+
+    async def train(self, epochs_count):
+        self.model.fit(self.x_train, self.y_train, epochs=epochs_count,
                        validation_data=(self.x_test, self.y_test))
-        self.model.save('cifar_classifier.model')
+        self.sum_epochs_count += epochs_count
 
 
 my_AI = AI()
 
 
-# Handles a photo
 async def handle_photo(update, context):
+    if my_AI.sum_epochs_count == 0:
+        await update.message.reply_text(
+            "Bot is not trained!"
+        )
+        return
     file = await context.bot.get_file(update.message.photo[-1].file_id)
     f = BytesIO(await file.download_as_bytearray())
     file_bytes = np.asarray(bytearray(f.read()), dtype=np.uint8)
@@ -65,90 +62,99 @@ async def handle_photo(update, context):
 
     prediction = my_AI.model.predict(np.array([img / 255]))
     await update.message.reply_text(
-        f"In this image I see a {my_AI.class_names[np.argmax(prediction)]}")
+        f"In this image I see a {my_AI.class_names[np.argmax(prediction)]}"
+    )
 
 
-# Lets us use the /start command
-async def start_command(update, context: ContextTypes.DEFAULT_TYPE):
+async def reset_command(update, context):
+    global my_AI
+    my_AI = AI()
     await update.message.reply_text(
-        "Hello, I'm an AI that can look at photo and say, what I see on them: Plane, Car, Bird, Cat, Deer, Dog, Frog, Horse, Ship or Truck.\n"
-        "Use /train command to train me.")
+        "Learning progress removed."
+    )
 
 
-async def help_command(update, context: ContextTypes.DEFAULT_TYPE):
-    await start_command(update, context)
-
-
-async def train_command(update, context: ContextTypes.DEFAULT_TYPE):
+async def start_command(update, context):
     await update.message.reply_text(
-        "Please wait a bit, training takes about 1 minute")
-    await my_AI.train(update, context)
-    await update.message.reply_text("Done! You can now send a photo!")
+        "Hello! I'm Cifar10Bot! Use /help command to see, what I can do."
+    )
 
 
-def handle_response(text: str) -> str:
-    # Create your own response logic
-    processed: str = text.lower()
+async def help_command(update, context):
+    await update.message.reply_text(
+        "<b>I'm Cifar10Bot.</b>\n"
+        "You can type messages and I will respond to them.\n"
+        "For example you can ask me current time by typing 'time'.\n\n"
+        
+        "<b>I can classify images.</b>\n"
+        "You can send me an image with\n"
+        "Plane, Car, Bird, Cat, Deer, Dog, Frog, Horse, Ship or Truck on it.\n"
+        "And I will say, what I see on the image.\n"
+        "I'm not too good at guessing,\n"
+        "because I work with low-quality images.\n\n"
+        
+        "<b>How to train me:</b>\n"
+        "If you want to make me better at classifying, type 'train X',\n"
+        "where X is a number of epochs you want me to train.",
+        parse_mode=ParseMode.HTML
+    )
+
+
+async def generate_response_for_message(text, update, context):
+    if text[:6] == 'train ':
+        epochs_count = text[6:]
+        try:
+            epochs_count = int(epochs_count)
+        except ValueError:
+            await update.message.reply_text(
+                "Incorrect train command!\n"
+                "Use /help command for more information."
+            )
+        else:
+            await update.message.reply_text(
+                "Please wait a bit, training will take "
+                f"about {epochs_count * 10} seconds"
+            )
+            await my_AI.train(epochs_count)
+            await update.message.reply_text("Done! You can now send a photo!")
+            return
+
+    processed = text.lower()
     a = ["hello", "hi", "hey"]
 
     for elem in a:
         if elem in processed:
-            return "Hey there!"
+            await update.message.reply_text("Hey there!")
+            return
 
     if "time" in text:
         now = datetime.datetime.now()
         current_time = now.strftime("%H:%M:%S")
-        return "Current time is " + current_time
+        await update.message.reply_text("Current time is " + current_time)
+        return
 
-    return "I don't understand. Use /help to see what I can do."
-
-
-async def handle_message(update, context: ContextTypes.DEFAULT_TYPE):
-    # Get basic info of the incoming message
-    message_type: str = update.message.chat.type
-    text: str = update.message.text
-
-    # Print a log for debugging
-    print(f"User ({update.message.chat.id}) in {message_type}: {text}")
-
-    # React to group messages only if users mention the bot directly
-    if message_type == "group":
-        # Replace with your bot username
-        if BOT_USERNAME in text:
-            new_text: str = text.replace(BOT_USERNAME, "").strip()
-            response: str = handle_response(new_text)
-        else:
-            return  # We don't want the bot respond if it"s not mentioned in the group
-    else:
-        response: str = handle_response(text)
-
-    # Reply normal if the message is in private
-    print("Bot:", response)
-    await update.message.reply_text(response)
+    await update.message.reply_text(
+        "I don't understand. Use /help command to see what I can do."
+    )
 
 
-# # Log errors
-# async def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
-#     print(f"Update {update} caused error {context.error}")
+async def handle_message(update, context):
+    message_type = update.message.chat.type
+    text = update.message.text
 
-# Run the program
+    if message_type == "group" and BOT_USERNAME in text:
+        text = text.replace(BOT_USERNAME, "").strip()
+    await generate_response_for_message(text, update, context)
+
+
 if __name__ == "__main__":
-    print('Starting bot...')
     app = Application.builder().token(TOKEN).build()
 
-    # Commands
     app.add_handler(CommandHandler("start", start_command))
-    app.add_handler(CommandHandler("help", start_command))
-    app.add_handler(CommandHandler("train", train_command))
+    app.add_handler(CommandHandler("help", help_command))
+    app.add_handler(CommandHandler("reset", reset_command))
 
-
-    # Messages
     app.add_handler(MessageHandler(filters.TEXT, handle_message))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
 
-    # Log all errors
-    # app.add_error_handler(error)
-
-    print("Polling...")
-    # Run the bot
     app.run_polling(poll_interval=1)
