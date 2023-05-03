@@ -95,7 +95,9 @@ async def help_command(update, context):
         
         "<b>How to train me:</b>\n"
         "If you want to make me better at classifying, type 'train X',\n"
-        "where X is a number of epochs you want me to train.",
+        "where X is a number of epochs you want me to train.\n"
+        "You can use /reset command to remove learning progress.\n",
+
         parse_mode=ParseMode.HTML
     )
 
