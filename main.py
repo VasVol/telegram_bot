@@ -7,7 +7,7 @@ import numpy as np
 from tensorflow import keras
 import datetime
 
-import Globals
+import Text
 
 TOKEN = "6292004438:AAEYL6PsHiX2rRYmPls5IWptP3_EWRGaO0Q"
 BOT_USERNAME = "@Cifar10Bot"
@@ -21,7 +21,7 @@ class AI:
         self.x_train = self.x_train / 255
         self.x_test = self.x_test / 255
 
-        self.class_names = Globals.class_names
+        self.class_names = Text.class_names
 
         self.model = keras.models.Sequential()
         self.model.add(keras.layers.Conv2D(32, (3, 3), activation='relu',
@@ -50,7 +50,7 @@ my_AI = AI()
 
 async def handle_photo(update, context):
     if my_AI.sum_epochs_count == 0:
-        await update.message.reply_text(Globals.not_trained_text)
+        await update.message.reply_text(Text.not_trained_text)
         return
     file = await context.bot.get_file(update.message.photo[-1].file_id)
     f = BytesIO(await file.download_as_bytearray())
@@ -61,23 +61,23 @@ async def handle_photo(update, context):
 
     prediction = my_AI.model.predict(np.array([img / 255]))
     await update.message.reply_text(
-        Globals.I_see_text({my_AI.class_names[np.argmax(prediction)]})
+        Text.I_see_text({my_AI.class_names[np.argmax(prediction)]})
     )
 
 
 async def reset_command(update, context):
     global my_AI
     my_AI = AI()
-    await update.message.reply_text(Globals.reset_command_text)
+    await update.message.reply_text(Text.reset_command_text)
 
 
 async def start_command(update, context):
-    await update.message.reply_text(Globals.start_command_text)
+    await update.message.reply_text(Text.start_command_text)
 
 
 async def help_command(update, context):
     await update.message.reply_text(
-        Globals.help_command_text,
+        Text.help_command_text,
         parse_mode=ParseMode.HTML
     )
 
@@ -89,31 +89,31 @@ async def generate_response_for_message(text, update, context):
             epochs_count = int(epochs_count)
         except ValueError:
             await update.message.reply_text(
-                Globals.incorrect_train_command_text
+                Text.incorrect_train_command_text
             )
         else:
             await update.message.reply_text(
-                Globals.wait_text(epochs_count * 10)
+                Text.wait_text(epochs_count * 10)
             )
             await my_AI.train(epochs_count)
-            await update.message.reply_text(Globals.can_send_photo_text)
+            await update.message.reply_text(Text.can_send_photo_text)
             return
 
     processed = text.lower()
-    a = Globals.welcome_user_words
+    a = Text.welcome_user_words
 
     for elem in a:
         if elem in processed:
-            await update.message.reply_text(Globals.greeting)
+            await update.message.reply_text(Text.greeting)
             return
 
     if "time" in text:
         now = datetime.datetime.now()
         current_time = now.strftime("%H:%M:%S")
-        await update.message.reply_text(Globals.current_time_text(current_time))
+        await update.message.reply_text(Text.current_time_text(current_time))
         return
 
-    await update.message.reply_text(Globals.dont_understand_text)
+    await update.message.reply_text(Text.dont_understand_text)
 
 
 async def handle_message(update, context):
