@@ -1,3 +1,6 @@
+TOKEN = "6292004438:AAEYL6PsHiX2rRYmPls5IWptP3_EWRGaO0Q"
+BOT_USERNAME = "@Cifar10Bot"
+
 class_names = ['Plane', 'Car', 'Bird', 'Cat', 'Deer', 'Dog', 'Frog', 'Horse',
                'Ship', 'Truck']
 

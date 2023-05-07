@@ -7,10 +7,11 @@ import numpy as np
 from tensorflow import keras
 import datetime
 
+import Globals
 import Text
 
-TOKEN = "6292004438:AAEYL6PsHiX2rRYmPls5IWptP3_EWRGaO0Q"
-BOT_USERNAME = "@Cifar10Bot"
+TOKEN = Text.TOKEN
+BOT_USERNAME = Text.BOT_USERNAME
 
 
 class AI:
@@ -18,22 +19,28 @@ class AI:
         self.sum_epochs_count = 0
         (self.x_train, self.y_train),\
             (self.x_test, self.y_test) = keras.datasets.cifar10.load_data()
-        self.x_train = self.x_train / 255
-        self.x_test = self.x_test / 255
+        self.x_train = self.x_train / Globals.train_k
+        self.x_test = self.x_test / Globals.train_k
 
         self.class_names = Text.class_names
 
         self.model = keras.models.Sequential()
-        self.model.add(keras.layers.Conv2D(32, (3, 3), activation='relu',
-                                           input_shape=(32, 32, 3)))
-        self.model.add(keras.layers.MaxPooling2D(2, 2))
-        self.model.add(keras.layers.Conv2D(64, (3, 3), activation='relu'))
-        self.model.add(keras.layers.MaxPooling2D(2, 2))
-        self.model.add(keras.layers.Conv2D(128, (3, 3), activation='relu'))
-        self.model.add(keras.layers.MaxPooling2D(2, 2))
+        self.model.add(keras.layers.Conv2D(Globals.conv_k1, Globals.conv_sizes,
+                                           activation='relu',
+                                           input_shape=(Globals.conv_k1,
+                                                        Globals.conv_k1, 3)))
+        self.model.add(keras.layers.MaxPooling2D(Globals.max_pooling_sizes))
+        self.model.add(keras.layers.Conv2D(Globals.conv_k2, Globals.conv_sizes,
+                                           activation='relu'))
+        self.model.add(keras.layers.MaxPooling2D(Globals.max_pooling_sizes))
+        self.model.add(keras.layers.Conv2D(Globals.conv_k3, Globals.conv_sizes,
+                                           activation='relu'))
+        self.model.add(keras.layers.MaxPooling2D(Globals.max_pooling_sizes))
         self.model.add(keras.layers.Flatten())
-        self.model.add(keras.layers.Dense(128, activation='relu'))
-        self.model.add(keras.layers.Dense(10, activation='softmax'))
+        self.model.add(keras.layers.Dense(Globals.dense_k1,
+                                          activation='relu'))
+        self.model.add(keras.layers.Dense(Globals.dense_k2,
+                                          activation='softmax'))
 
         self.model.compile(optimizer='adam',
                            loss='sparse_categorical_crossentropy',
@@ -57,11 +64,12 @@ async def handle_photo(update, context):
     file_bytes = np.asarray(bytearray(f.read()), dtype=np.uint8)
     img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
     img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-    img = cv2.resize(img, (32, 32), interpolation=cv2.INTER_AREA)
+    img = cv2.resize(img, (Globals.image_size, Globals.image_size),
+                     interpolation=cv2.INTER_AREA)
 
-    prediction = my_AI.model.predict(np.array([img / 255]))
+    prediction = my_AI.model.predict(np.array([img / Globals.train_k]))
     await update.message.reply_text(
-        Text.I_see_text({my_AI.class_names[np.argmax(prediction)]})
+        Text.I_see_text(my_AI.class_names[np.argmax(prediction)])
     )
 
 
@@ -83,8 +91,8 @@ async def help_command(update, context):
 
 
 async def generate_response_for_message(text, update, context):
-    if text[:6] == 'train ':
-        epochs_count = text[6:]
+    if text[:len('train ')] == 'train ':
+        epochs_count = text[len('train '):]
         try:
             epochs_count = int(epochs_count)
         except ValueError:
@@ -93,7 +101,7 @@ async def generate_response_for_message(text, update, context):
             )
         else:
             await update.message.reply_text(
-                Text.wait_text(epochs_count * 10)
+                Text.wait_text(epochs_count * Globals.epoch_time)
             )
             await my_AI.train(epochs_count)
             await update.message.reply_text(Text.can_send_photo_text)
