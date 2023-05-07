@@ -38,3 +38,17 @@ pip install -r requirements.txt
 ```
 python3 main.py
 ```
+
+## Установка через docker:
+```
+git clone git@github.com:VasVol/telegram_bot.git
+cd telegram_bot
+git checkout dev
+docker build -t my_bot .
+```
+
+## Запуск через docker:
+```
+docker run -it my_bot
+```
+
